@@ -16,10 +16,11 @@
 ## 2) 요청 흐름
 
 1. 클라이언트 → `/chat/query` 또는 `/chat/query/stream`
-2. 서버 → `sessionTicket` 검증 후 `sessionId` 추출
-3. 서버 → `sessionKey` 생성
-   - `agent:chatbot:tutor:session:{sessionId}`
-4. 서버 → OpenClaw Gateway `/v1/chat/completions` 호출
+2. `SessionRoutingService` → 세션 컨텍스트 계산
+   - `sessionTicket` 없으면 `default-session` fallback
+   - `sessionId`, `sessionKey` 생성
+3. `ChatQueryService` → 검증/동시요청 제어/rate limit
+4. `GatewayClient` → OpenClaw Gateway `/v1/chat/completions` 호출
 5. 응답/로그를 같은 세션 단위로 저장
 
 ## 3) OpenClaw 연동 원칙

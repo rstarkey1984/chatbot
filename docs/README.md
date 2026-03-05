@@ -5,7 +5,7 @@
 ## 문서 목록
 
 - `architecture-and-operations.md`
-  - Gateway 세션 일관성, 세션키 규칙, 운영 점검 절차
+  - Gateway 세션 일관성, `SessionRoutingService` 규칙, 운영 점검 절차
 
 - `deployment-config.md`
   - 배포 시 환경설정, Gateway 연동 설정, 검증 체크리스트

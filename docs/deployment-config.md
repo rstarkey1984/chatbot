@@ -16,6 +16,11 @@
 
 민감정보는 환경변수/시크릿 매니저로 주입합니다.
 
+현재 원칙:
+- Java `@Value`에는 기본값을 두지 않음
+- 기본값은 `application.yml`에서만 관리
+- 시크릿 값(`CHATBOT_DB_PASSWORD`, `CHATBOT_TOKEN_SECRET`, `OPENCLAW_GATEWAY_TOKEN`)은 코드/깃에 하드코딩 금지
+
 ## 2) OpenClaw Gateway
 
 권장 점검 명령:
