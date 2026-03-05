@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot Embed Demo</title>
+  <link rel="stylesheet" href="/embed-demo.css" />
+</head>
+
+<body>
+  <div id="chatbotWrap">
+    <div id="chatbotBar">
+      <div class="title">Chatbot Widget</div>
+      <div class="actions">
+        <button type="button" id="btnMin">최소화</button>
+        <button type="button" id="btnMax">최대화</button>
+      </div>
+    </div>
+
+    <div id="chatbotBody">
+      <iframe id="chatbotFrame" src="/chat" width="420" height="780" frameborder="0"
+        allow="clipboard-read; clipboard-write"></iframe>
+    </div>
+  </div>
+
+  <script src="/embed-demo.js"></script>
+  <script>
+    const chatapp = chatApp.init();
+    const userName = `홍길동`;
+    const ragText = `스프링부트는 스프링 기반 애플리케이션 개발을 빠르게 하기 위한 프레임워크입니다.
+자동 설정(Auto Configuration), 스타터 의존성(Starter), 내장 서버(Embedded Server)를 제공해
+초기 설정 부담을 줄이고 실행 가능한 애플리케이션을 쉽게 만들 수 있습니다.`;
+
+    chatapp.setUser(userName);
+    chatapp.setRagContext(ragText);
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>세션 티켓 발급</title>
+  <style>
+    body { font-family: sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; }
+    .card { max-width: 780px; margin: 0 auto; background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+    h1 { margin-top: 0; }
+    .row { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 6px; color: #94a3b8; font-size: 13px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: #e2e8f0; }
+    button { margin-top: 8px; padding: 10px 14px; border: 0; border-radius: 8px; background: #4f46e5; color: white; font-weight: 600; cursor: pointer; }
+    pre { white-space: pre-wrap; background: #0b1220; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>세션 티켓 발급 페이지</h1>
+  <div class="row">
+    <label>sessionId (예: user-1-custom-1)</label>
+    <input id="sessionId" value="user-1-custom-1" />
+  </div>
+  <div class="row">
+    <label>ttlSeconds (선택, 기본 3600)</label>
+    <input id="ttl" value="3600" />
+  </div>
+  <div class="row">
+    <label>X-API-KEY (선택: 서버에서 app.auth.issue-api-key 설정 시 필수)</label>
+    <input id="apiKey" placeholder="설정된 경우 입력" />
+  </div>
+  <button id="issue">세션 티켓 발급</button>
+  <pre id="out">결과가 여기에 표시됩니다.</pre>
+</div>
+
+<script>
+  const out = document.getElementById('out');
+  document.getElementById('issue').onclick = async () => {
+    const sessionId = document.getElementById('sessionId').value.trim();
+    const ttlRaw = document.getElementById('ttl').value.trim();
+    const apiKey = document.getElementById('apiKey').value.trim();
+
+    const body = { sessionId };
+    if (ttlRaw) body.ttlSeconds = Number(ttlRaw);
+
+    try {
+      const res = await fetch('/session-ticket/issue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? {'X-API-KEY': apiKey} : {})
+        },
+        body: JSON.stringify(body)
+      });
+      const text = await res.text();
+      out.textContent = `HTTP ${res.status}\n` + text;
+    } catch (e) {
+      out.textContent = '요청 실패: ' + e.message;
+    }
+  };
+</script>
+</body>
+</html>

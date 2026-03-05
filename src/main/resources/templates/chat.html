@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat Widget</title>
+  <link rel="stylesheet" href="/chat.css" />
+
+</head>
+<body>
+<div class="widget">
+  <div class="header">
+    <div>
+      <div class="title">AI 튜터 위젯</div>
+      <div class="meta">강의자료기반</div>
+    </div>
+    <div class="status"><span id="dot" class="dot"></span><span id="st">대기 중</span></div>
+  </div>
+
+  <div id="messages" class="messages"></div>
+
+  <div class="composer">
+    <div class="row">
+      <textarea id="q" maxlength="100" placeholder="질문 입력" style="flex:1; min-height:54px;"></textarea>
+      <button id="send">전송</button>
+    </div>
+    <label for="user" class="hint">사용자이름 (필수)</label>
+    <input id="user" type="text" maxlength="20" placeholder="사용자 이름 입력" />
+    <label for="ctx" class="hint">학습자료 (필수)</label>
+    <textarea id="ctx" maxlength="4000" placeholder="학습자료 입력">강의자료를 입력해주세요.</textarea>
+    <div class="hint">부모 페이지에서 postMessage(type=CHATBOT_SET_CONTEXT)로 사용자이름/학습자료 주입 가능</div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  const messages = document.getElementById('messages');
+  let sessionTicket = /*[[${sessionTicket}]]*/ '';
+  const dot = document.getElementById('dot');
+  const st = document.getElementById('st');
+  let isWaitingResponse = false;
+  let currentUser = '';
+
+  const add = (role, text) => {
+    const last = messages.lastElementChild;
+    if (last && !last.classList.contains('loading')) {
+      const sameRole = last.classList.contains(role);
+      const lastText = last.getAttribute('data-text') || last.textContent;
+      if (sameRole && lastText === text) {
+        const current = Number(last.getAttribute('data-repeat') || '1') + 1;
+        last.setAttribute('data-repeat', String(current));
+        let badge = last.querySelector('.repeat-badge');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'repeat-badge';
+          last.appendChild(badge);
+        }
+        badge.textContent = String(current);
+        messages.scrollTop = messages.scrollHeight;
+        return last;
+      }
+    }
+
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    div.setAttribute('data-text', text);
+    div.setAttribute('data-repeat', '1');
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  };
+
+  function setLoadingBubble(el) {
+    el.classList.add('loading');
+    el.innerHTML = `<span class="typing"><span style="font-size:12px;color:#cbd5e1">응답 생성중</span><span class="dots"><i></i><i></i><i></i></span></span>`;
+  }
+
+  function parseSseChunk(buffer, onEvent) {
+    const parts = buffer.split('\n\n');
+    const complete = parts.slice(0, -1);
+    const rest = parts[parts.length - 1];
+
+    for (const raw of complete) {
+      const lines = raw.split('\n');
+      let event = 'message';
+      const dataLines = [];
+      for (const line of lines) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        if (line.startsWith('data:')) { dataLines.push(line.slice(5)); }
+      }
+      onEvent(event, dataLines.join('\n'));
+    }
+    return rest;
+  }
+
+  async function sendViaStream(question, userName, ragContext, botEl) {
+    const res = await fetch('/chat/query/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, userName, ragContext, sessionTicket })
+    });
+
+    if (!res.ok || !res.body) {
+      let message = '';
+      try {
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        if (contentType.includes('application/json')) {
+          const json = await res.json();
+          message = (json && json.message) ? String(json.message).trim() : '';
+        } else {
+          const raw = await res.text();
+          const match = raw.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+          const extracted = match ? match[1] : raw;
+          const plain = extracted
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim();
+          message = plain;
+        }
+      } catch (_) {
+      }
+
+      if (!message) {
+        throw new Error('스트림 연결 실패 (' + res.status + ')');
+      }
+      throw new Error(message);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      buffer = parseSseChunk(buffer, (event, data) => {
+        if (event === 'chunk') {
+          if (botEl.classList.contains('loading')) {
+            botEl.classList.remove('loading');
+            botEl.textContent = '';
+          }
+          botEl.textContent += data;
+          messages.scrollTop = messages.scrollHeight;
+          return;
+        }
+        if (event === 'error') {
+          throw new Error(data || '응답 생성 중 오류');
+        }
+      });
+    }
+  }
+
+
+  async function loadHistory() {
+    if (!sessionTicket) return;
+    try {
+      const res = await fetch('/chat/history?sessionTicket=' + encodeURIComponent(sessionTicket));
+      if (!res.ok) return;
+      const body = await res.json();
+      const items = Array.isArray(body.items) ? body.items : [];
+      for (const item of items) {
+        if (item.question) add('user', item.question);
+        if (item.answer) add('bot', item.answer);
+      }
+    } catch (_) {
+    }
+  }
+
+  document.getElementById('q').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('send').click();
+    }
+  });
+
+  document.getElementById('send').onclick = async () => {
+    if (isWaitingResponse) return;
+
+    const question = document.getElementById('q').value.trim();
+    const userInput = document.getElementById('user');
+    const user = ((userInput && userInput.value) || currentUser || '').trim();
+    const ragContext = document.getElementById('ctx').value.trim();
+    if (!question) return add('bot', '질문을 입력하세요.');
+    if (!user) return add('bot', '사용자 이름을 입력하세요.');
+    if (!ragContext) return add('bot', '학습 자료를 먼저 불러와 주세요.');
+
+    if (userInput) userInput.value = user;
+    currentUser = user;
+
+    add('user', question);
+    document.getElementById('q').value = '';
+    const botEl = add('bot', '');
+    setLoadingBubble(botEl);
+
+    isWaitingResponse = true;
+    st.textContent = '응답 생성 중';
+    dot.classList.add('ok');
+    try {
+      await sendViaStream(question, user, ragContext, botEl);
+      botEl.classList.remove('loading');
+      if (!botEl.textContent.trim()) botEl.textContent = '(빈 응답)';
+    } catch (e) {
+      botEl.classList.remove('loading');
+      botEl.textContent = '오류: ' + (e.message || '응답 생성 실패');
+    } finally {
+      isWaitingResponse = false;
+      dot.classList.remove('ok');
+      st.textContent = '대기 중';
+      messages.scrollTop = messages.scrollHeight;
+    }
+  };
+
+  const allowedOrigins = [
+    'http://localhost:3000','http://localhost:5173','http://localhost:8080',
+    'http://localhost:8888','http://127.0.0.1:8888', window.location.origin
+  ];
+  window.addEventListener('message', (event) => {
+    if (!allowedOrigins.includes(event.origin)) return;
+    const d = event.data || {};
+    if (d.type !== 'CHATBOT_SET_CONTEXT') return;
+    if (typeof d.question === 'string') document.getElementById('q').value = d.question;
+    if (typeof d.ragContext === 'string') document.getElementById('ctx').value = d.ragContext;
+    if (typeof d.user === 'string') {
+      currentUser = d.user;
+      const userInput = document.getElementById('user');
+      if (userInput) userInput.value = d.user;
+    }
+    try { window.parent.postMessage({ type: 'CHATBOT_CONTEXT_APPLIED' }, event.origin); } catch (_) {}
+  });
+
+  if (window.parent && window.parent !== window) {
+    try { window.parent.postMessage({ type: 'CHATBOT_READY' }, '*'); } catch (_) {}
+  }
+
+  loadHistory().finally(() => {
+    if (!messages.children.length) {
+      add('bot', '안녕하세요! 궁금한 내용을 입력해 주세요.');
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>요청 오류</title>
+  <style>
+    body { font-family: sans-serif; margin: 40px; background: #0f172a; color: #e2e8f0; }
+    .box { max-width: 760px; margin: 0 auto; border: 1px solid #334155; border-radius: 12px; padding: 20px; background:#111827; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    .status { color: #93c5fd; font-family: ui-monospace, Menlo, monospace; margin-bottom: 10px; }
+    p { line-height: 1.6; color: #cbd5e1; margin: 0; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <h1>요청을 처리할 수 없습니다.</h1>
+  <div class="status"><span th:text="${status}">400</span> <span th:text="${reason}">Bad Request</span></div>
+  <p th:text="${message}">오류 메시지</p>
+</div>
+</body>
+</html>
