@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3308/chatbot?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
     username: chatbot_app
-    password: ${CHATBOT_DB_PASSWORD:}
+    password: ${CHATBOT_DB_PASSWORD:koreanit_chatbot_!1234}
   jpa:
     hibernate:
       ddl-auto: update
@@ -16,7 +16,7 @@ spring:
 
 app:
   auth:
-    token-secret: ${CHATBOT_TOKEN_SECRET:}
+    token-secret: ${CHATBOT_TOKEN_SECRET:change-me-token-secret}
     issue-api-key: ${CHATBOT_ISSUE_API_KEY:}
     default-issue-ttl-seconds: ${CHATBOT_DEFAULT_ISSUE_TTL_SECONDS:31536000}
     max-issue-ttl-seconds: ${CHATBOT_MAX_ISSUE_TTL_SECONDS:31536000}
