@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpClient.Version;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,7 @@ public class GatewayClient {
     private final WebClient webClient = WebClient.builder().build();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
+            .version(Version.HTTP_1_1)
             .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -146,7 +148,6 @@ public class GatewayClient {
         }
     }
 
-    @SuppressWarnings("null")
     public String streamAnswer(String systemPrompt, String userPrompt, String sessionKeyOverride, Consumer<String> onChunk) {
         String effectiveSessionKey = (sessionKeyOverride != null && !sessionKeyOverride.isBlank()) ? sessionKeyOverride : null;
         StringBuilder full = new StringBuilder();
