@@ -13,13 +13,21 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 @Component
@@ -27,6 +35,9 @@ public class GatewayClient {
     private static final Logger log = LoggerFactory.getLogger(GatewayClient.class);
 
     private final WebClient webClient = WebClient.builder().build();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${app.gateway.url}")
@@ -139,14 +150,11 @@ public class GatewayClient {
     public String streamAnswer(String systemPrompt, String userPrompt, String sessionKeyOverride, Consumer<String> onChunk) {
         String effectiveSessionKey = (sessionKeyOverride != null && !sessionKeyOverride.isBlank()) ? sessionKeyOverride : null;
         StringBuilder full = new StringBuilder();
-        AtomicReference<String> resolvedModelRef = new AtomicReference<>(null);
-        StringBuilder sseBuffer = new StringBuilder();
 
         try {
             String url = trimTrailingSlash(gatewayUrl) + "/v1/chat/completions";
             String requestModel = resolveGatewayModel();
 
-            HttpHeaders headers = buildHeaders(effectiveSessionKey, true);
             Map<String, Object> payload = Map.of(
                     "model", requestModel,
                     "stream", true,
@@ -157,84 +165,58 @@ public class GatewayClient {
                     "temperature", 0.2
             );
 
-            webClient.post()
-                    .uri(url)
-                    .headers(h -> h.addAll(headers))
-                    .bodyValue(payload)
-                    .retrieve()
-                    .bodyToFlux(String.class)
-                    .doOnNext(part -> {
-                        if (part == null || part.isEmpty()) return;
-                        sseBuffer.append(part);
-                        consumeSseBuffer(sseBuffer, resolvedModelRef, full, onChunk);
-                    })
-                    .blockLast();
+            String payloadJson = objectMapper.writeValueAsString(payload);
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofMinutes(3))
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "text/event-stream")
+                    .header("x-openclaw-agent-id", gatewayAgentId)
+                    .POST(HttpRequest.BodyPublishers.ofString(payloadJson));
 
-            consumeSseBuffer(sseBuffer, resolvedModelRef, full, onChunk);
+            if (effectiveSessionKey != null && !effectiveSessionKey.isBlank()) {
+                builder.header("x-openclaw-session-key", effectiveSessionKey);
+            }
+            String token = resolveGatewayToken();
+            if (token != null && !token.isBlank()) {
+                builder.header("Authorization", "Bearer " + token);
+            }
+
+            HttpResponse<InputStream> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
+            int status = response.statusCode();
+            if (status != 200) {
+                if (status == 401) return "게이트웨이 인증에 실패했습니다. 토큰 설정을 확인해 주세요.";
+                if (status == 404) return "게이트웨이 채팅 엔드포인트가 비활성화되어 있습니다.";
+                return "게이트웨이 호출에 실패했습니다. (HTTP " + status + ")";
+            }
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.startsWith("data:")) continue;
+                    String data = line.substring(5).trim();
+                    if (data.isEmpty() || "[DONE]".equals(data)) continue;
+
+                    JsonNode root = objectMapper.readTree(data);
+                    JsonNode choices = root.path("choices");
+                    if (!choices.isArray() || choices.isEmpty()) continue;
+                    JsonNode delta = choices.get(0).path("delta");
+                    if (!delta.hasNonNull("content")) continue;
+
+                    String chunk = delta.get("content").asText();
+                    full.append(chunk);
+                    if (onChunk != null && !chunk.isEmpty()) {
+                        onChunk.accept(chunk);
+                    }
+                }
+            }
 
             if (full.isEmpty()) {
                 return "응답 생성 실패";
             }
             return full.toString();
-        } catch (WebClientResponseException e) {
-            int code = e.getStatusCode().value();
-            if (code == 401) return "게이트웨이 인증에 실패했습니다. 토큰 설정을 확인해 주세요.";
-            if (code == 404) return "게이트웨이 채팅 엔드포인트가 비활성화되어 있습니다.";
-            return "게이트웨이 호출에 실패했습니다. (HTTP " + code + ")";
         } catch (Exception e) {
             return "게이트웨이 처리 중 오류가 발생했습니다: " + e.getMessage();
-        }
-    }
-
-    private void consumeSseBuffer(StringBuilder sseBuffer, AtomicReference<String> resolvedModelRef, StringBuilder full, Consumer<String> onChunk) {
-        int newlineIdx;
-        while ((newlineIdx = sseBuffer.indexOf("\n")) >= 0) {
-            String line = sseBuffer.substring(0, newlineIdx).trim();
-            sseBuffer.delete(0, newlineIdx + 1);
-            processSseLine(line, resolvedModelRef, full, onChunk);
-        }
-
-        // tail은 완전한 JSON처럼 보일 때만 시도하고, 실패하면 버리지 않는다.
-        String tail = sseBuffer.toString().trim();
-        if (!tail.isEmpty() && (tail.startsWith("data: {") || (tail.startsWith("{") && tail.endsWith("}")))) {
-            boolean consumed = processSseLine(tail, resolvedModelRef, full, onChunk);
-            if (consumed) {
-                sseBuffer.setLength(0);
-            }
-        }
-    }
-
-    private boolean processSseLine(String line, AtomicReference<String> resolvedModelRef, StringBuilder full, Consumer<String> onChunk) {
-        if (line == null || line.isEmpty()) {
-            return false;
-        }
-
-        String data = line;
-        if (line.startsWith("data:")) {
-            data = line.substring(5).trim();
-        }
-        if (data.isEmpty() || "[DONE]".equals(data) || !data.startsWith("{")) {
-            return false;
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(data);
-            if (resolvedModelRef.get() == null && root.hasNonNull("model")) {
-                resolvedModelRef.set(root.get("model").asText());
-            }
-            JsonNode choices = root.path("choices");
-            if (!choices.isArray() || choices.isEmpty()) return true;
-            JsonNode delta = choices.get(0).path("delta");
-            if (!delta.hasNonNull("content")) return true;
-            String chunk = delta.get("content").asText();
-            full.append(chunk);
-            if (onChunk != null && !chunk.isEmpty()) {
-                onChunk.accept(chunk);
-            }
-            return true;
-        } catch (Exception ignore) {
-            // ignore malformed partial chunks
-            return false;
         }
     }
 
