@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>챗봇/RAG 서비스 - 지식베이스(문서셋)별 세션 분리</title>
+  <style>
+    @page { size: 1280px 720px; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; background: #0b1020; color: #eef2ff; }
+    .slide {
+      width: 1280px; height: 720px; padding: 54px 64px;
+      page-break-after: always; position: relative;
+      background: radial-gradient(circle at 20% 10%, #1e2a52, #0b1020 60%);
+    }
+    .slide:last-child { page-break-after: auto; }
+    h1 { margin: 0 0 14px; font-size: 52px; line-height: 1.2; }
+    h2 { margin: 0 0 18px; font-size: 40px; }
+    h3 { margin: 0 0 12px; font-size: 28px; color: #93c5fd; }
+    p, li { font-size: 24px; line-height: 1.45; }
+    ul { margin: 8px 0 0 22px; }
+    .muted { color: #cbd5e1; font-size: 22px; }
+    .badge { display:inline-block; padding: 8px 14px; border-radius: 999px; background:#1d4ed8; font-size:20px; margin-bottom: 10px; }
+    .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color:#bfdbfe; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card { border: 1px solid #334155; border-radius: 12px; padding: 14px 16px; background: rgba(15, 23, 42, 0.65); }
+    .small li { font-size: 21px; line-height: 1.35; }
+  </style>
+</head>
+<body>
+  <section class="slide">
+    <span class="badge">챗봇/RAG 서비스</span>
+    <h1>챗봇/RAG 서비스</h1>
+    <p class="muted">지식베이스(문서셋)별 세션 분리</p>
+  </section>
+
+  <section class="slide">
+    <h2>2. 문제 정의 및 설계 목표</h2>
+    <h3>문제 정의</h3>
+    <ul>
+      <li>여러 질문이 하나의 흐름으로 이어지며 맥락이 과하게 누적될 수 있음</li>
+      <li>같은 주제가 끊기면 맥락 단절로 반복 질문이 증가</li>
+      <li>사용자는 "왜 지금 이 답을 하지?" 같은 혼선을 경험</li>
+    </ul>
+    <h3 style="margin-top:14px;">설계 목표</h3>
+    <ul>
+      <li>문서셋 기준으로 세션 라우팅</li>
+      <li>같은 자료는 이어지고, 다른 자료는 분리</li>
+      <li>세션 식별값 무결성 보장 + 운영 유연성 확보</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>3. 개발환경 및 프로젝트 구조</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>개발환경</h3>
+        <ul>
+          <li>OS: Ubuntu</li>
+          <li>Java 21, Spring Boot</li>
+          <li>DB: MySQL</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>프로젝트 구조</h3>
+        <ul>
+          <li>프론트엔드: Thymeleaf + static(html/css/js)</li>
+          <li>백엔드: controller/service/repository/entity</li>
+          <li>데이터베이스: MySQL + <span class="code">sql/</span></li>
+          <li>OpenClaw Gateway 연동</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>4. 프로젝트 수행 절차 및 방법</h2>
+    <ul class="small">
+      <li><b>요구사항 분석</b>: 사용자 세션 이력 직접 관리 부담, 맥락 단절/섞임 이슈 확인</li>
+      <li><b>시스템 설계</b>: OpenClaw Gateway 도입, <span class="code">user+custom</span> 기준 정의</li>
+      <li><b>UI/UX 설계</b>: 자료 기반 대화 흐름과 전환 동선 정리</li>
+      <li><b>기능 구현</b>: SessionRoutingService, GatewayClient, 요청 검증 반영</li>
+      <li><b>테스트/검증</b>: 동일 문서셋 유지, 문서셋 전환 분리, fallback 점검</li>
+      <li><b>결과 정리</b>: 라우팅 기준, 로그 포인트, 운영 규칙 문서화</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>5. 아키텍처/세션 정책/Gateway 요청 계약</h2>
+    <ul class="small">
+      <li><b>아키텍처</b>: ChatQueryService → SessionRoutingService → GatewayClient</li>
+      <li><b>세션 모델</b>: <span class="code">sessionId = user + custom</span> (문서셋/주제 기준)</li>
+      <li><b>토큰 정책</b>: <span class="code">sessionTicket</span> 기반 무결성 보장, 미제공 시 기본 세션 적용</li>
+      <li><b>요청 계약</b>: Authorization, <span class="code">x-openclaw-agent-id</span>, <span class="code">x-openclaw-session-key</span></li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>6. 시연 단계 (브라우저 기준)</h2>
+    <ul class="small">
+      <li>실행: <span class="code">cd ~/projects/chatbot && ./gradlew bootRun</span></li>
+      <li>헬스체크: <span class="code">http://localhost:8888/health</span></li>
+      <li>채팅: <span class="code">http://localhost:8888/chat?sessionTicket=&lt;A&gt;</span> (문맥 유지)</li>
+      <li>분리: 새 탭 <span class="code">.../chat?sessionTicket=&lt;B&gt;</span> (세션 분리)</li>
+      <li>fallback: <span class="code">http://localhost:8888/chat</span></li>
+      <li>검증: <span class="code">/chat/whoami</span>, <span class="code">/chat/history</span></li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>7. 기대효과 및 향후 개선</h2>
+    <h3>기대효과</h3>
+    <ul>
+      <li>같은 문서셋은 이어지고, 다른 문서셋은 분리되어 문맥 혼선 감소</li>
+      <li>세션 라우팅 기준 명확화로 운영/장애 분석 효율 향상</li>
+      <li>세션 이력 관리 부담 완화로 유지보수성 확보</li>
+    </ul>
+    <h3 style="margin-top:12px;">향후 개선</h3>
+    <ul>
+      <li>세션 라우팅 모니터링 강화(지표, 오류 추적 대시보드)</li>
+      <li>문서셋 특성 기반 응답 정책 고도화</li>
+    </ul>
+  </section>
+</body>
+</html>
