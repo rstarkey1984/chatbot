@@ -184,18 +184,65 @@
   });
 
   const SPRING_BOOT_CONTEXT = `스프링부트 학습자료
-- Spring Boot는 설정 자동화(Auto Configuration)로 빠른 애플리케이션 개발을 지원한다.
-- 핵심 구성요소: Spring MVC, Spring Data JPA, Validation, Security, Actuator.
-- 애플리케이션 설정은 application.yml/application.properties로 관리한다.
-- 계층 구조 예시: Controller → Service → Repository.
-- REST API 설계 시 DTO 검증(@Valid), 예외 처리(@ControllerAdvice), 로깅이 중요하다.`;
+1) Spring Boot 개요
+- Spring Boot는 스프링 기반 애플리케이션을 빠르게 개발하기 위한 프레임워크다.
+- 복잡한 XML 설정 없이 starter 의존성과 자동 설정(Auto Configuration)으로 초기 구성이 단순하다.
+- 내장 톰캣을 사용해 별도 WAS 설치 없이 단독 실행 가능한 JAR 형태로 배포할 수 있다.
+
+2) 핵심 구성
+- Spring MVC: Controller, RequestMapping, Validation 기반 웹/REST 처리
+- Spring Data JPA: Repository 인터페이스 기반 데이터 접근 추상화
+- Spring Security: 인증/인가, 세션 및 토큰 기반 보안 처리
+- Spring Boot Actuator: health, metrics, info 등 운영 상태 확인
+
+3) 실무 구조 예시
+- Controller: 요청/응답 처리, DTO 검증(@Valid)
+- Service: 비즈니스 로직, 트랜잭션 경계 관리
+- Repository: DB 접근, 쿼리 실행
+- Entity/DTO 분리: 영속 모델과 API 모델 책임 분리
+
+4) 설정 및 운영 포인트
+- 환경별 설정은 application.yml + 프로필(dev, prod)로 분리
+- 전역 예외 처리는 @ControllerAdvice로 일관된 에러 응답 제공
+- 로그는 요청 ID, 세션 ID 기반으로 추적 가능하게 구성
+- 외부 연동 시 timeout/retry/circuit breaker 전략을 검토
+
+5) 성능/안정성 체크
+- 커넥션 풀(HikariCP) 설정 점검
+- 불필요한 N+1 쿼리 방지(fetch 전략, join fetch)
+- 입력값 검증과 rate limit으로 비정상 요청 보호
+- 헬스체크(/health)와 모니터링 지표를 운영에 반영`;
 
   const MYSQL_CONTEXT = `MySQL 학습자료
-- MySQL은 관계형 데이터베이스(RDBMS)로 트랜잭션과 인덱스를 지원한다.
-- 기본 문법: SELECT, INSERT, UPDATE, DELETE.
-- 성능 최적화 핵심: 인덱스 설계, 실행 계획(EXPLAIN) 확인.
-- 정규화로 데이터 중복을 줄이고, 필요 시 적절한 비정규화를 적용한다.
-- InnoDB 엔진 기준으로 ACID 트랜잭션과 외래키 제약을 활용한다.`;
+1) MySQL 개요
+- MySQL은 대표적인 오픈소스 관계형 데이터베이스(RDBMS)다.
+- InnoDB 엔진 기준으로 트랜잭션, 외래키, 행 단위 잠금을 지원한다.
+- 웹 서비스에서 읽기/쓰기, 통계, 검색 기능의 핵심 저장소 역할을 수행한다.
+
+2) 기본 SQL 문법
+- 조회: SELECT ... FROM ... WHERE ... ORDER BY ... LIMIT ...
+- 삽입: INSERT INTO table (col1, col2) VALUES (...)
+- 수정: UPDATE table SET col = value WHERE ...
+- 삭제: DELETE FROM table WHERE ...
+- 집계: COUNT, SUM, AVG, GROUP BY, HAVING
+
+3) 인덱스와 성능
+- 인덱스는 조회 성능을 높이지만 쓰기 비용이 증가할 수 있다.
+- WHERE/JOIN/ORDER BY에 자주 쓰이는 컬럼 중심으로 인덱스를 설계한다.
+- EXPLAIN으로 실행 계획을 확인하고 full scan 여부를 점검한다.
+- 복합 인덱스는 컬럼 순서(선두 컬럼)가 매우 중요하다.
+
+4) 모델링/정합성
+- 정규화로 데이터 중복을 줄이고, 필요 시 조회 성능을 위해 비정규화를 적용한다.
+- PK/FK 제약으로 참조 무결성을 유지한다.
+- NOT NULL, UNIQUE 제약으로 데이터 품질을 보장한다.
+- created_at/updated_at 컬럼으로 변경 이력을 관리한다.
+
+5) 트랜잭션/운영
+- ACID 보장을 위해 트랜잭션 경계를 명확히 설정한다.
+- 격리수준(REPEATABLE READ 등)에 따라 동시성 동작이 달라진다.
+- 장기 트랜잭션은 락 경쟁을 유발하므로 짧게 유지한다.
+- 백업/복구 전략(mysqldump, binlog)과 모니터링을 운영에 포함한다.`;
 
   const ctxEl = document.getElementById('ctx');
   document.getElementById('presetSpring')?.addEventListener('click', () => {
