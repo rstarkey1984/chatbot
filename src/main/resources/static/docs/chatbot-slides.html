@@ -31,7 +31,10 @@
   <section class="slide">
     <span class="badge">챗봇/RAG 서비스</span>
     <h1>챗봇/RAG 서비스</h1>
-    <p class="muted">지식베이스(문서셋)별 세션 분리</p>
+    <p class="muted">LLM 기반 지식베이스(문서셋)별 세션 분리</p>
+    <p class="muted">범위: Spring Boot 백엔드, MySQL, OpenClaw Gateway 연동</p>
+    <p class="muted">목적: 같은 자료로 이어지는 대화는 자연스럽게 연결하고, 다른 자료의 대화는 섞이지 않도록 분리</p>
+    <p class="muted">작성자: 류근철</p>
   </section>
 
   <section class="slide">
@@ -59,15 +62,18 @@
           <li>OS: Ubuntu</li>
           <li>Java 21, Spring Boot</li>
           <li>DB: MySQL</li>
+          <li>Node.js</li>
+          <li>OpenClaw Gateway</li>
         </ul>
       </div>
       <div class="card">
-        <h3>프로젝트 구조</h3>
-        <ul>
-          <li>프론트엔드: Thymeleaf + static(html/css/js)</li>
-          <li>백엔드: controller/service/repository/entity</li>
-          <li>데이터베이스: MySQL + <span class="code">sql/</span></li>
-          <li>OpenClaw Gateway 연동</li>
+        <h3>프로젝트 구조(상세)</h3>
+        <ul class="small">
+          <li>프론트엔드: <span class="code">templates</span>(Thymeleaf), <span class="code">static</span>(html/css/js)</li>
+          <li>백엔드: <span class="code">controller</span>, <span class="code">service</span>, <span class="code">repository</span>, <span class="code">entity</span></li>
+          <li>공통 처리: <span class="code">common</span>, <span class="code">controller/advice</span></li>
+          <li>데이터베이스: MySQL, <span class="code">sql/</span> 초기 스키마/운영 SQL</li>
+          <li>OpenClaw Gateway: <span class="code">/v1/chat/completions</span>, <span class="code">agent-id/session-key</span> 기반 라우팅</li>
         </ul>
       </div>
     </div>

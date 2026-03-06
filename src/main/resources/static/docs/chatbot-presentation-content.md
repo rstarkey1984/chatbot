@@ -19,7 +19,12 @@
 ## 1. 표지
 
 **챗봇/RAG 서비스**  
-부제: 지식베이스(문서셋)별 세션 분리
+부제: LLM 기반 지식베이스(문서셋)별 세션 분리
+
+표지 보조 문구:
+- 범위: Spring Boot 백엔드, MySQL, OpenClaw Gateway 연동
+- 목적: 같은 자료로 이어지는 대화는 자연스럽게 연결하고, 다른 자료의 대화는 섞이지 않도록 분리
+- 작성자: 류근철
 
 ---
 
@@ -47,6 +52,8 @@
 - OS: Ubuntu
 - Java 21, Spring Boot
 - DB: MySQL
+- Node.js
+- OpenClaw Gateway
 
 프로젝트 구조(상세):
 - 프론트엔드
