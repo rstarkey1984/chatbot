@@ -10,11 +10,9 @@
 2. 문제 정의 및 설계 목표  
 3. 개발환경 및 프로젝트 구조  
 4. 프로젝트 수행 절차 및 방법  
-5. 전체 아키텍처  
-6. 세션 모델 (user + custom)  
-7. 세션 토큰 정책 및 Gateway 요청 계약  
-8. 시연 단계  
-9. 결론
+5. 아키텍처/세션 정책/Gateway 요청 계약  
+6. 시연 단계  
+7. 결론
 
 ---
 
@@ -22,11 +20,6 @@
 
 **챗봇/RAG 서비스**  
 부제: 지식베이스(문서셋)별 세션 분리
-
-발표 멘트(3줄):
-- 이번 발표는 대화 문맥 충돌을 줄이기 위한 세션 설계 이야기입니다.
-- 핵심은 사용자 단위가 아니라 문맥 단위로 세션을 관리하는 것입니다.
-- user+custom 모델과 Gateway 계약 중심으로 설명드리겠습니다.
 
 ---
 
@@ -40,22 +33,11 @@
 핵심 질문:  
 **"사용자 입장에서 대화가 자연스럽고 일관되게 이어지게 하려면 무엇이 필요한가?"**
 
-발표 멘트(3줄):
-- 챗봇 사용자는 대화가 자연스럽게 이어지길 기대합니다.
-- 그런데 실제로는 다른 주제가 섞이거나, 같은 주제가 끊기는 문제가 함께 발생합니다.
-- 그래서 이번 설계는 맥락 섞임과 맥락 단절을 동시에 줄이는 데 초점을 맞췄습니다.
-
-
 설계 목표:
 - 챗봇/RAG 서비스에서 참고자료별 세션 라우팅 기준 확립
 - 같은 참고자료 기반 대화는 이어지고, 다른 참고자료는 분리
 - 세션 식별값 무결성 보장
 - 코드와 정책의 책임 분리로 운영 유연성 확보
-
-설계 목표 멘트(3줄):
-- 이번 설계 목표는 참고자료별로 대화 세션을 명확히 나누는 것입니다.
-- 같은 자료를 볼 때는 문맥을 이어주고, 자료가 바뀌면 세션을 분리합니다.
-- 이를 통해 답변 정확도와 운영 일관성을 함께 확보하고자 했습니다.
 
 ---
 
@@ -82,68 +64,65 @@
   - 백엔드에서 `/v1/chat/completions` 연동
   - `x-openclaw-agent-id`, `x-openclaw-session-key` 기반 문맥 라우팅
 
-발표 멘트(3줄):
-- 구조는 프론트엔드, 백엔드, 데이터베이스, Gateway의 4계층으로 나눴습니다.
-- 백엔드는 controller-service-repository 계층으로 책임을 분리했습니다.
-- Gateway 연동은 백엔드에서 일원화해 세션 라우팅 규칙을 일관되게 유지했습니다.
-
 ---
 
 ## 4. 프로젝트 수행 절차 및 방법
 
 1) 요구사항 분석  
-2) 시스템 설계  
-3) UI/UX 설계  
-4) 기능 구현  
-5) 테스트 및 검증  
-6) 결과 정리
+- 사용자 세션별 대화 이력을 애플리케이션에서 직접 관리해야 함  
+- 요청마다 대화 이력을 함께 보내지 않으면 같은 주제도 맥락 단절 발생  
+- 세션 키를 너무 넓게 잡으면 다른 질문 문맥이 섞일 위험 존재  
+- 따라서 지식베이스(문서셋) 기준의 세션 식별/분리 규칙이 필요
 
-발표 멘트(3줄):
-- 프로젝트는 요구사항 분석부터 결과 정리까지 순차적으로 진행했습니다.
-- 설계 단계에서 세션 분리 기준과 화면 흐름을 함께 정의했습니다.
-- 구현 이후에는 테스트를 통해 문맥 유지/분리 동작을 검증했습니다.
+2) 시스템 설계  
+- 사용자 세션 이력 관리를 단순화하기 위해 OpenClaw Gateway 사용  
+- 세션 식별 기준을 `user + custom`으로 정의  
+- `custom`에 문서셋 식별값을 반영해 세션 분리 정책 수립  
+- Gateway 연동 시 `x-openclaw-session-key` 규칙 확정
+
+3) UI/UX 설계  
+- 사용자가 현재 어떤 자료 기반으로 대화 중인지 인지 가능하게 구성  
+- 자료 전환 시 대화가 분리된다는 점을 자연스럽게 이해하도록 흐름 설계  
+- 불필요한 입력 없이 대화 중심 인터랙션 유지
+
+4) 기능 구현  
+- `SessionRoutingService`에 세션 계산/분리 로직 구현  
+- `GatewayClient`에 헤더 계약(`agent-id`, `session-key`) 반영  
+- 컨트롤러/서비스 계층에서 요청 검증 및 처리 흐름 정리
+
+5) 테스트 및 검증  
+- 같은 문서셋으로 연속 질문 시 문맥 유지 확인  
+- 다른 문서셋으로 전환 시 세션 분리 확인  
+- sessionTicket 유무에 따른 fallback 동작 점검
+
+6) 결과 정리
+- 문맥 섞임과 단절을 함께 줄이는 세션 운영 기준 확보  
+- 운영 시 확인 가능한 라우팅 기준 및 로그 포인트 정리  
+- 발표/문서에 재사용 가능한 설계 원칙으로 정리
 
 ---
 
-## 5. 전체 아키텍처
+## 5. 아키텍처/세션 정책/Gateway 요청 계약
+
+전체 아키텍처:
 
 1) 클라이언트 요청 수신 (`question`, `userName`, `ragContext`, `sessionTicket`)  
-2) `SessionRoutingService`가 `sessionId`, `sessionKey` 계산  
-3) `ChatQueryService`가 검증/동시성/rate limit 처리  
+2) `ChatQueryService`가 입력 검증/동시성/rate limit 처리  
+3) `SessionRoutingService`가 `sessionTicket` 기준으로 `sessionId` 해석 및 `sessionKey` 계산  
 4) `GatewayClient`가 OpenClaw Gateway 호출  
 5) 동일 세션 기준으로 응답/로그 일관 처리
 
-발표 멘트(3줄):
-- 요청은 라우팅 서비스에서 먼저 세션 컨텍스트를 계산합니다.
-- 쿼리 서비스에서 검증과 제어를 적용해 품질을 보장합니다.
-- 최종 호출과 로그까지 동일 세션 기준으로 맞춰 일관성을 유지합니다.
-
----
-
-## 6. 세션 모델: user + custom
-
+세션 모델 (user + custom):
 - `sessionId`는 **user + custom 스코프** 기반
-- `custom`은 사용자 내부 문맥 분리 키
-  - 예: 채널, 방, 탭, 쓰레드, 업무 컨텍스트
+- `custom`은 사용자 내부 대화 구분 키 (예: 문서셋/주제)
 
 규칙:
 - same user + different custom → 다른 세션
 - same user + same custom → 같은 세션 재사용
 
-발표 멘트(3줄):
-- custom은 사용자 내부 대화 맥락을 분리하는 핵심 키입니다.
-- 같은 사용자라도 custom이 다르면 완전히 다른 세션으로 처리합니다.
-- custom이 같을 때만 문맥을 이어받도록 규칙을 고정했습니다.
-
----
-
-## 7. 세션 토큰 정책 및 Gateway 요청 계약
-
 세션 토큰 정책:
 - `sessionTicket`: HMAC 서명 토큰 (sessionId 무결성 보장)
-- `sessionTicket` 미제공 시 `app.gateway.default-session` 사용
-  - `.` 포함: 토큰으로 간주
-  - `.` 미포함: sessionId로 간주 후 access token 발급
+- `sessionTicket` 미제공 시 `app.gateway.default-session` 기반으로 기본 세션 적용
 
 Gateway 요청 계약:
 - `Authorization: Bearer <gateway-token>`
@@ -151,28 +130,93 @@ Gateway 요청 계약:
 - `x-openclaw-session-key: {session-key-prefix}{sessionId}`
 - `model: openclaw:chatbot`, `messages`, `stream`
 
-발표 멘트(3줄):
-- 세션 토큰 정책으로 sessionId 무결성을 보장합니다.
-- agent-id와 session-key를 분리해 요청 의미를 명확히 했습니다.
-- 결과적으로 보안성과 확장성을 동시에 확보했습니다.
+---
+
+## 6. 시연 단계
+
+기준 주소:
+- `http://localhost:8888`
+
+사전 확인:
+1) 헬스체크  
+- `GET /health`
+
+```bash
+curl http://localhost:8888/health
+```
+
+2) 세션 기준 확인(현재 라우팅 값 확인)  
+- `GET /chat/whoami?sessionTicket={ticket}`
+
+```bash
+curl "http://localhost:8888/chat/whoami?sessionTicket=<SESSION_TICKET>"
+```
+
+본 시연:
+3) 같은 `sessionTicket`으로 연속 질문(문맥 유지)  
+- `POST /chat/query`
+
+```bash
+curl -X POST http://localhost:8888/chat/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "이 자료 핵심 3줄로 요약해줘",
+    "userName": "demo",
+    "ragContext": "문서셋 A 내용",
+    "sessionTicket": "<SESSION_TICKET_A>"
+  }'
+```
+
+```bash
+curl -X POST http://localhost:8888/chat/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "방금 요약 기준으로 실천 항목 2개만",
+    "userName": "demo",
+    "ragContext": "문서셋 A 내용",
+    "sessionTicket": "<SESSION_TICKET_A>"
+  }'
+```
+
+4) 다른 `sessionTicket`으로 질문(세션 분리)  
+- `POST /chat/query`
+
+```bash
+curl -X POST http://localhost:8888/chat/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "이 자료 핵심 3줄로 요약해줘",
+    "userName": "demo",
+    "ragContext": "문서셋 B 내용",
+    "sessionTicket": "<SESSION_TICKET_B>"
+  }'
+```
+
+5) fallback 확인(`sessionTicket` 없이 요청)  
+- `POST /chat/query`
+
+```bash
+curl -X POST http://localhost:8888/chat/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "기본 세션 동작 확인",
+    "userName": "demo",
+    "ragContext": "기본 문서셋 내용"
+  }'
+```
+
+6) 히스토리/세션 검증  
+- `GET /chat/history?sessionTicket={ticket}`
+- `GET /chat/whoami?sessionTicket={ticket}`
+
+```bash
+curl "http://localhost:8888/chat/history?sessionTicket=<SESSION_TICKET_A>"
+curl "http://localhost:8888/chat/whoami?sessionTicket=<SESSION_TICKET_A>"
+```
 
 ---
 
-## 8. 시연 단계
-
-1) 같은 `user + custom`으로 연속 요청 → 문맥 유지 확인  
-2) 같은 user, 다른 custom 요청 → 문맥 분리 확인  
-3) `sessionTicket` 없이 요청 → default-session fallback 확인  
-4) 헤더/로그 확인 → session-key 라우팅 검증
-
-발표 멘트(3줄):
-- 시연에서는 문맥 유지와 문맥 분리를 순서대로 확인합니다.
-- fallback 경로까지 보여드려 운영 시 예외 흐름도 검증합니다.
-- 마지막으로 로그를 통해 라우팅 결과를 눈으로 확인합니다.
-
----
-
-## 9. 결론
+## 7. 결론
 
 **세션은 사용자 단위가 아니라 user+custom 문맥 단위로 관리한다.**
 
@@ -180,8 +224,3 @@ Gateway 요청 계약:
 - 세션 일관성 → 응답 일관성
 - 정책 파일 → 운영 제어 포인트
 - Gateway 계약 준수 → 확장 가능한 연동 기반
-
-발표 마무리 멘트(3줄):
-- 이번 설계의 핵심은 문맥 단위 세션 관리입니다.
-- 이를 통해 답변 품질과 운영 효율을 함께 개선할 수 있습니다.
-- 이후 기능 확장도 같은 계약 위에서 일관되게 진행 가능합니다.
