@@ -33,9 +33,6 @@ public class AuthTokenService {
 
         String sessionId = payload.path("sid").asText("");
         if (sessionId.isBlank()) {
-            sessionId = payload.path("uid").asText(""); // backward compatibility
-        }
-        if (sessionId.isBlank()) {
             throw new IllegalArgumentException("토큰의 세션 ID가 비어 있습니다.");
         }
         validateSessionId(sessionId);
