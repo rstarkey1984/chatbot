@@ -16,11 +16,16 @@
 1. 클라이언트가 `question`, `userName`, `ragContext`, `sessionTicket` 전송
 2. `SessionRoutingService`가 `sessionTicket/default-session` 규칙으로 세션 컨텍스트 계산
    - `sessionTicket`, `sessionId`, `sessionKey`
+   - `sessionId`는 `user + custom` 스코프 기반 식별자
 3. `ChatQueryService`가 입력 검증/동시성/rate limit 적용
 4. `GatewayClient`가 OpenClaw Gateway `/v1/chat/completions` 호출
 5. 응답/로그를 같은 세션 기준으로 처리
 
-같은 사용자라도 `custom` 값이 다르면 다른 세션입니다.
+`custom` 의미:
+- 사용자 내부에서 대화 문맥을 분리하기 위한 추가 키
+- 예: 채널/방/탭/쓰레드/업무 컨텍스트 식별자
+- 같은 `user`라도 `custom`이 다르면 다른 세션으로 라우팅
+- `custom`이 같으면 같은 세션 문맥을 재사용
 
 ---
 
