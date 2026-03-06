@@ -1,6 +1,6 @@
 # 챗봇/RAG 서비스
 
-> 발표자료 본문 (9장 구성)
+> 발표자료 본문 (7장 구성)
 
 ---
 
@@ -12,7 +12,7 @@
 4. 프로젝트 수행 절차 및 방법  
 5. 아키텍처/세션 정책/Gateway 요청 계약  
 6. 시연 단계  
-7. 결론
+7. 기대효과 및 향후 개선
 
 ---
 
@@ -137,90 +137,53 @@ Gateway 요청 계약:
 기준 주소:
 - `http://localhost:8888`
 
+0) 스프링부트 애플리케이션 실행  
+- 프로젝트 루트에서 실행: `~/projects/chatbot`
+
+```bash
+cd ~/projects/chatbot
+./gradlew bootRun
+```
+
 사전 확인:
 1) 헬스체크  
-- `GET /health`
+- 브라우저에서 `http://localhost:8888/health` 접속
+- 응답에 `{"status":"ok"}` 확인
 
-```bash
-curl http://localhost:8888/health
-```
+2) 채팅 화면 접속  
+- 브라우저에서 `http://localhost:8888/chat` 접속
+- 화면이 정상 렌더링되는지 확인
 
-2) 세션 기준 확인(현재 라우팅 값 확인)  
-- `GET /chat/whoami?sessionTicket={ticket}`
+본 시연(브라우저 기준):
+3) 같은 세션으로 연속 질문(문맥 유지)  
+- `http://localhost:8888/chat?sessionTicket=<SESSION_TICKET_A>` 접속
+- 문서셋 A 기준으로 질문 1회 후, 이어서 후속 질문 1회
+- 앞 질문 맥락이 이어지는지 확인
 
-```bash
-curl "http://localhost:8888/chat/whoami?sessionTicket=<SESSION_TICKET>"
-```
+4) 다른 세션으로 질문(세션 분리)  
+- 새 탭에서 `http://localhost:8888/chat?sessionTicket=<SESSION_TICKET_B>` 접속
+- 문서셋 B 기준으로 질문
+- A 세션 맥락이 섞이지 않는지 확인
 
-본 시연:
-3) 같은 `sessionTicket`으로 연속 질문(문맥 유지)  
-- `POST /chat/query`
+5) 기본 세션 fallback 확인  
+- `http://localhost:8888/chat` (sessionTicket 없이) 접속
+- 질문 후 기본 세션으로 동작하는지 확인
 
-```bash
-curl -X POST http://localhost:8888/chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "이 자료 핵심 3줄로 요약해줘",
-    "userName": "demo",
-    "ragContext": "문서셋 A 내용",
-    "sessionTicket": "<SESSION_TICKET_A>"
-  }'
-```
-
-```bash
-curl -X POST http://localhost:8888/chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "방금 요약 기준으로 실천 항목 2개만",
-    "userName": "demo",
-    "ragContext": "문서셋 A 내용",
-    "sessionTicket": "<SESSION_TICKET_A>"
-  }'
-```
-
-4) 다른 `sessionTicket`으로 질문(세션 분리)  
-- `POST /chat/query`
-
-```bash
-curl -X POST http://localhost:8888/chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "이 자료 핵심 3줄로 요약해줘",
-    "userName": "demo",
-    "ragContext": "문서셋 B 내용",
-    "sessionTicket": "<SESSION_TICKET_B>"
-  }'
-```
-
-5) fallback 확인(`sessionTicket` 없이 요청)  
-- `POST /chat/query`
-
-```bash
-curl -X POST http://localhost:8888/chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "기본 세션 동작 확인",
-    "userName": "demo",
-    "ragContext": "기본 문서셋 내용"
-  }'
-```
-
-6) 히스토리/세션 검증  
-- `GET /chat/history?sessionTicket={ticket}`
-- `GET /chat/whoami?sessionTicket={ticket}`
-
-```bash
-curl "http://localhost:8888/chat/history?sessionTicket=<SESSION_TICKET_A>"
-curl "http://localhost:8888/chat/whoami?sessionTicket=<SESSION_TICKET_A>"
-```
+6) 세션 라우팅 결과 확인  
+- `http://localhost:8888/chat/whoami?sessionTicket=<SESSION_TICKET_A>` 접속
+- `sessionId`, `sessionKey` 확인
+- `http://localhost:8888/chat/history?sessionTicket=<SESSION_TICKET_A>` 접속
+- A 세션 히스토리만 조회되는지 확인
 
 ---
 
-## 7. 결론
+## 7. 기대효과 및 향후 개선
 
-**세션은 사용자 단위가 아니라 user+custom 문맥 단위로 관리한다.**
+기대효과:
+- 같은 문서셋 대화는 안정적으로 이어지고, 다른 문서셋은 분리되어 문맥 혼선 감소
+- 세션 식별/라우팅 기준이 명확해져 운영 및 장애 분석 효율 향상
+- 사용자 세션 이력 관리 부담을 줄여 서비스 확장 시 유지보수성 확보
 
-요약:
-- 세션 일관성 → 응답 일관성
-- 정책 파일 → 운영 제어 포인트
-- Gateway 계약 준수 → 확장 가능한 연동 기반
+향후 개선:
+- 세션 라우팅 모니터링 강화(세션별 지표, 오류 추적 대시보드)
+- 문서셋 특성에 맞춘 응답 정책 고도화(프롬프트/정책 파일 세분화)
