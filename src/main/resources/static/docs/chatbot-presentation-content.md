@@ -66,16 +66,26 @@
 - Java 21, Spring Boot
 - DB: MySQL
 
-프로젝트 구조(핵심):
+프로젝트 구조(상세):
 - 프론트엔드
+  - `src/main/resources/templates` : 웹 화면 템플릿
+  - `src/main/resources/static` : 정적 리소스(css/js/pdf)
 - 백엔드
+  - `controller` : API 엔드포인트
+  - `service` : 세션 라우팅/질의 처리/Gateway 호출
+  - `repository`, `entity` : DB 접근 및 데이터 모델
+  - `common`, `controller/advice` : 공통 예외/응답 처리
 - 데이터베이스
+  - MySQL
+  - `sql/` : 초기 스키마/운영 SQL
 - OpenClaw Gateway
+  - 백엔드에서 `/v1/chat/completions` 연동
+  - `x-openclaw-agent-id`, `x-openclaw-session-key` 기반 문맥 라우팅
 
 발표 멘트(3줄):
-- 먼저 개발환경과 전체 구성 요소를 간단히 소개하겠습니다.
-- 구조는 프론트엔드, 백엔드, 데이터베이스, Gateway로 나눴습니다.
-- 각 영역을 분리해 변경 범위를 줄이고 운영 관리를 쉽게 했습니다.
+- 구조는 프론트엔드, 백엔드, 데이터베이스, Gateway의 4계층으로 나눴습니다.
+- 백엔드는 controller-service-repository 계층으로 책임을 분리했습니다.
+- Gateway 연동은 백엔드에서 일원화해 세션 라우팅 규칙을 일관되게 유지했습니다.
 
 ---
 
