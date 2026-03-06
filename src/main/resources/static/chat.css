@@ -88,6 +88,20 @@ button {
   min-width: 74px;
   height: 54px;
 }
+.preset-row { display:flex; gap:8px; }
+.preset-btn {
+  height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  border: 1px solid #334155;
+  background: #1e293b;
+}
+.preset-btn.ghost {
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
 .hint { color: var(--muted); font-size: 11px; }
 
 .msg.loading { opacity: .95; }
